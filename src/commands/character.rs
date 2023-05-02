@@ -1,24 +1,13 @@
-use std::any::Any;
-use std::borrow::Cow;
-use std::fmt::format;
-use std::future::Future;
-use std::ops::{Deref, DerefMut};
-use std::pin::Pin;
 use std::sync::Arc;
 use std::time::Duration;
-use async_recursion::async_recursion;
-use poise::{BoxFuture, ReplyHandle};
-use poise::futures_util::FutureExt;
-use serenity::builder::{CreateButton, CreateComponents, CreateEmbed, CreateEmbedFooter, CreateInteractionResponseData};
+use poise::ReplyHandle;
+use serenity::builder::{CreateButton, CreateComponents, CreateEmbed, CreateEmbedFooter};
 use serenity::model::application::component::ButtonStyle;
-use serenity::model::application::interaction::InteractionResponseType;
 use serenity::model::application::interaction::message_component::MessageComponentInteraction;
-use serenity::model::channel::Message;
-use serenity::utils::{Color, MessageBuilder};
 use crate::data::{Context, Error};
 use crate::data::allcharacters::{Characters, get_nearest_characters};
-use crate::data::character::{Character, Description, get_character_data, Review};
-use crate::data::description::{Content2, get_all_texts};
+use crate::data::character::{Character, get_character_data};
+use crate::data::description::get_all_texts;
 use crate::data::proscons::get_proscons_texts;
 use crate::utils::color_manager::get_element_color;
 use crate::utils::emote_manager::{get_element_emote, get_path_emote};
@@ -79,7 +68,7 @@ async fn get_character_review(character: &Character) -> Option<CreateEmbed> {
     let cons = match cons_data {
         None => { "".to_string() }
         Some(data) => {
-            let mut all_texts: Vec<String> = get_proscons_texts(&data).unwrap_or(vec![]).into_iter().map(|x| format!("• {}", x)).collect();
+            let all_texts: Vec<String> = get_proscons_texts(&data).unwrap_or(vec![]).into_iter().map(|x| format!("• {}", x)).collect();
             all_texts.join("\n")
         }
     };
@@ -88,7 +77,7 @@ async fn get_character_review(character: &Character) -> Option<CreateEmbed> {
     let pros = match pros_data {
         None => { "".to_string() }
         Some(data) => {
-            let mut all_texts: Vec<String> = get_proscons_texts(&data).unwrap_or(vec![]).into_iter().map(|x| format!("• {}", x)).collect();
+            let all_texts: Vec<String> = get_proscons_texts(&data).unwrap_or(vec![]).into_iter().map(|x| format!("• {}", x)).collect();
             all_texts.join("\n")
         }
     };
@@ -207,7 +196,7 @@ async fn menu_handler(ctx: Context<'_>, interaction: Arc<MessageComponentInterac
     }
 }
 
-async fn choice_interaction_handler(ctx: Context<'_>, message: &ReplyHandle<'_>, tab: CharacterTab) {
+async fn choice_interaction_handler(ctx: Context<'_>, message: &ReplyHandle<'_>) {
     let message = message.clone().into_message().await.unwrap();
     let interaction =
         match message.await_component_interaction(&ctx).timeout(Duration::from_secs(60 * 3)).await {
@@ -244,7 +233,7 @@ pub async fn character(
         None => { ctx.say(format!("Error occured")).await? }
         Some(characters) => {
             let handler = create_menu(ctx, characters).await;
-            choice_interaction_handler(ctx, &handler, CharacterTab::Home).await;
+            choice_interaction_handler(ctx, &handler).await;
             handler
         }
     };

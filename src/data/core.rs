@@ -19,7 +19,7 @@ pub struct Result<T: PrydwenCompatible> {
 #[derive(Default, Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct PageContext {
-    contentfulId: Option<String>
+    contentful_id: Option<String>
 }
 
 pub trait PrydwenCompatible {

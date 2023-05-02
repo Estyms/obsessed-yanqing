@@ -1,0 +1,17 @@
+[package]
+name = "obsessed-yanqing"
+version = "1.0.0"
+edition = "2021"
+authors = ["Evann Regnault"]
+license = "MIT"
+
+[dependencies]
+serenity = { version="0.11.5", features=["builder", "client", "gateway", "model", "utils", "collector"], default-features = false }
+poise = { version="0.5.2" }
+serde_json = "1.0.95"
+serde_derive = "1.0.159"
+tokio = { version="1.28.0", features = ["macros", "rt-multi-thread"]  }
+levenshtein = "1.0.5"
+reqwest = "0.11.17"
+serde = "1.0.160"
+serde_path_to_error = "0.1.11"
