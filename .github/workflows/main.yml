@@ -3,7 +3,7 @@ name: Docker Build and Push with Version
 on:
   push:
     branches:
-      - main
+      - master
 
 env:
   DOCKER_REGISTRY: r.evannregnault.dev
