@@ -42,7 +42,5 @@ jobs:
           platforms: linux/amd64
           push: true
           tags: |
-            user/app:latest
-            user/app:1.0.0
             ${{ env.DOCKER_REGISTRY }}/obsessed-yanqing:latest
             ${{ env.DOCKER_REGISTRY }}/obsessed-yanqing:${{ env.VERSION }}
