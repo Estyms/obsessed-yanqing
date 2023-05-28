@@ -152,7 +152,7 @@ async fn menu_handler(ctx: Context<'_>, interaction: Arc<MessageComponentInterac
         };
         match looping {
             true => {
-                interaction
+                match interaction
                     .edit_original_interaction_response(&ctx, |d| {
                         match character_embed {
                             None => {}
@@ -160,10 +160,13 @@ async fn menu_handler(ctx: Context<'_>, interaction: Arc<MessageComponentInterac
                         }
                         d.content("");
                         d.components(|f| create_character_tabs_button(&mut *f, &character, &tab))
-                    }).await.unwrap();
+                    }).await {
+                    Ok(_) => {}
+                    Err(_) => {}
+                }
             }
             false => {
-                interaction
+                match interaction
                     .create_interaction_response(&ctx, |r| {
                         r.interaction_response_data(|d| {
                             match character_embed {
@@ -174,12 +177,19 @@ async fn menu_handler(ctx: Context<'_>, interaction: Arc<MessageComponentInterac
                             d.ephemeral(true);
                             d.components(|f| create_character_tabs_button(&mut *f, &character, &tab))
                         })
-                    }).await.unwrap();
-
+                    }).await {
+                    Ok(_) => {interaction.delete_followup_message(&ctx, interaction.message.id).await.unwrap();}
+                    Err(_) => {}
+                }
             }
         }
 
-        let x = interaction.get_interaction_response(&ctx).await.unwrap().await_component_interaction(&ctx).timeout(Duration::from_secs(10 * 60)).await;
+        let x = match interaction.get_interaction_response(&ctx).await {
+            Ok(x) => {x}
+            Err(_) => return
+        };
+
+        let x = x.await_component_interaction(&ctx).timeout(Duration::from_secs(10 * 60)).await;
 
         match x {
             None => {}
@@ -208,7 +218,6 @@ async fn choice_interaction_handler(ctx: Context<'_>, message: &ReplyHandle<'_>)
                 return;
             }
         };
-
     let character_string = &interaction.data.values[0];
     let character = get_character_data(character_string.to_string()).await.unwrap();
     menu_handler(ctx, interaction, character, CharacterTab::Home).await;

@@ -352,30 +352,42 @@ pub struct Ratings {
 #[derive(Default, Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct BuildDaum {
-    #[serde(rename = "relic_1")]
-    pub relic_1: String,
-    #[serde(rename = "relic_2")]
-    pub relic_2: String,
-    pub planar: String,
-    #[serde(rename = "cone_1")]
-    pub cone_1: String,
-    #[serde(rename = "cone_2")]
-    pub cone_2: String,
-    #[serde(rename = "cone_3")]
-    pub cone_3: String,
-    #[serde(rename = "cone_4")]
-    pub cone_4: String,
-    #[serde(rename = "cone_5")]
-    pub cone_5: String,
-    #[serde(rename = "cone_6")]
-    pub cone_6: Option<String>,
+    pub relics: Vec<Relic>,
+    pub planars: Vec<Planar>,
+    pub cones: Vec<Cone>,
     pub body: Vec<Body>,
     pub feet: Vec<Foot>,
     pub rope: Vec<Rope>,
     pub sphere: Vec<Sphere>,
     pub comments: String,
     pub substats: String,
+    #[serde(rename = "skill_priority")]
+    pub skill_priority: String,
+    #[serde(rename = "traces_priority")]
+    pub traces_priority: String,
     pub name: String,
+}
+
+#[derive(Default, Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct Relic {
+    pub relic: String,
+    #[serde(rename = "relic_2")]
+    pub relic_2: String,
+}
+
+#[derive(Default, Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct Planar {
+    pub planar: String,
+}
+
+#[derive(Default, Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct Cone {
+    pub cone: String,
+    #[serde(rename = "super")]
+    pub super_field: String,
 }
 
 #[derive(Default, Debug, Clone, PartialEq, Serialize, Deserialize)]
