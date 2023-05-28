@@ -26,10 +26,9 @@ jobs:
           password: ${{ env.DOCKER_PASSWORD }}
 
       - name: Install cargo-semver
-        uses: baptiste0928/cargo-install@v2
+        uses: dtolnay/install@master
         with:
           crate: cargo-semver
-          version: "^1.0.17"
 
       - name: Semver
         run:
