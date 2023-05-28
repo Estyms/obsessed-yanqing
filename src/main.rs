@@ -9,7 +9,7 @@ use crate::data::Data;
 async fn main() {
     // Build our client.
     let framework = poise::Framework::builder()
-        .token(std::env::var("TOKEN").expect("No token found"))
+        .token(std::env::var("TOKEN").expect("No token found "))
         .intents(GatewayIntents::non_privileged())
         .options(poise::FrameworkOptions {
             commands: vec![
