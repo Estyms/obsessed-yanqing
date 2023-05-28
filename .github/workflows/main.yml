@@ -18,12 +18,19 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v2
 
+      - name: Set up Docker
+        uses: docker/setup-docker@v2
+
       - name: Set up Rust
         uses: actions-rs/toolchain@v1
         with:
           profile: minimal
           toolchain: stable
           override: true
+
+      - name: Install libavutil development package
+        run: sudo apt-get update && sudo apt-get install -y libavutil-dev
+
 
       - name: Install Cargo Dependencies
         run: cargo install metadata
