@@ -1,0 +1,36 @@
+name: Docker Build and Push with Version
+
+on:
+  push:
+    branches:
+      - main
+
+env:
+  DOCKER_REGISTRY: your.private.registry.com
+  DOCKER_USERNAME: ${{ secrets.DOCKER_USERNAME }}
+  DOCKER_PASSWORD: ${{ secrets.DOCKER_PASSWORD }}
+
+jobs:
+  build_and_push:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v2
+
+      - name: Install Rust and Cargo
+        run: |
+          curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y
+          export PATH="$HOME/.cargo/bin:$PATH"
+
+      - name: Get App Version
+        id: version
+        run: cargo metadata --format-version 1 | jq -r '.packages[0].version'
+
+      - name: Login to Docker registry
+        run: echo "${{ env.DOCKER_PASSWORD }}" | docker login -u "${{ env.DOCKER_USERNAME }}" --password-stdin "${{ env.DOCKER_REGISTRY }}"
+
+      - name: Build and push Docker image
+        run: |
+          docker build --pull --cache-from "${{ env.DOCKER_REGISTRY }}/your-image:${{ steps.version.outputs.version }}" --tag "${{ env.DOCKER_REGISTRY }}/your-image:${{ steps.version.outputs.version }}" .
+          docker push "${{ env.DOCKER_REGISTRY }}/your-image:${{ steps.version.outputs.version }}"
