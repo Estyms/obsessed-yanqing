@@ -25,11 +25,10 @@ jobs:
           username: ${{ env.DOCKER_USERNAME }}
           password: ${{ env.DOCKER_PASSWORD }}
 
-      - name: Cargo install
-        uses: actions-rs/cargo@v1
+      - name: Install cargo-semver
+        uses: baptiste0928/cargo-install@v2
         with:
-          command: install
-          args: cargo-semver
+          crate: cargo-semver
 
       - name: Semver
         run:
