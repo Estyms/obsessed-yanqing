@@ -29,6 +29,7 @@ jobs:
         uses: baptiste0928/cargo-install@v2
         with:
           crate: cargo-semver
+          version: "^1.0.17"
 
       - name: Semver
         run:
