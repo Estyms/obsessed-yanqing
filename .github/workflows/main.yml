@@ -28,12 +28,12 @@ jobs:
       - name: Install cargo-semver
         uses: actions-rs/install@v0.1.2
         with:
-          crate: cargo-semver
+          crate: cargo-get
           version: latest
 
       - name: Semver
         run:
-          echo "VERSION=$(cargo semver get)" >> $GITHUB_ENV
+          echo "VERSION=$(cargo get version --pretty)" >> $GITHUB_ENV
 
       - name: Build and push
         uses: docker/build-push-action@v4
