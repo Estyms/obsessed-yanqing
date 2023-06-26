@@ -21,6 +21,7 @@ async fn main() {
             Box::pin(async move {
                 ctx.set_activity(Activity::listening("/character")).await;
                 poise::builtins::register_globally(ctx, &framework.options().commands).await?;
+                println!("Bot Started");
                 Ok(Data {})
             })
         });
