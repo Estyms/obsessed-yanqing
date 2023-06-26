@@ -17,5 +17,5 @@ RUN cargo build --release --bin obsessed-yanqing
 
 FROM alpine:latest
 RUN apk add --no-cache libc6-compat
-COPY --from=builder /app/target/release/obsessed-yanqing /usr/local/bin
-ENTRYPOINT [ "/usr/local/bin/obsessed-yanqing" ]
+COPY --from=builder /app/target/release/obsessed-yanqing .
+CMD ["./obsessed-yanqing"]
