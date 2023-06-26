@@ -31,7 +31,7 @@ pub struct Characters {
 impl PrydwenCompatible for PrydwenAllCharacters{}
 
 pub async fn get_nearest_characters(name: String) -> Option<Vec<Characters>> {
-    let mut characters = get_all_characters().await?;
+    let mut characters = get_all_characters().await.expect("Cannot get characters");
     characters.nodes.sort_by(|a, b | {
         match a.name.to_lowercase().contains(name.to_lowercase().as_str()) {
             true => {

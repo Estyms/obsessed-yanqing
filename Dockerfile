@@ -1,21 +1,22 @@
-# https://www.lpalmieri.com/posts/fast-rust-docker-builds/
-FROM rust:alpine AS rust
-RUN apk add musl-dev openssl-dev
+FROM rust:slim-bullseye AS base
+RUN apt-get update
+RUN apt-get install libssl-dev pkg-config -y
 RUN cargo install cargo-chef
 WORKDIR app
 
-FROM rust AS planner
+FROM base AS planner
 COPY . .
 RUN cargo chef prepare --recipe-path recipe.json
 
-FROM rust AS builder
+FROM base AS builder
 COPY --from=planner /app/recipe.json recipe.json
 RUN cargo chef cook --release --recipe-path recipe.json
 COPY . .
 RUN cargo build --release --bin obsessed-yanqing
 
-
-FROM alpine:latest
-RUN apk add --no-cache libc6-compat
+FROM rust:slim-bullseye
+RUN apt-get update
+RUN apt-get install ca-certificates -y
+WORKDIR /root/
 COPY --from=builder /app/target/release/obsessed-yanqing .
 CMD ["./obsessed-yanqing"]

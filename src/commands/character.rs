@@ -239,7 +239,7 @@ pub async fn character(
     #[description = "Character to Search"] user: String,
 ) -> Result<(), Error> {
     match get_nearest_characters(user).await {
-        None => { ctx.say(format!("Error occured")).await? }
+        None => { ctx.say(format!("Error occured, please see logs")).await? }
         Some(characters) => {
             let handler = create_menu(ctx, characters).await;
             choice_interaction_handler(ctx, &handler).await;
