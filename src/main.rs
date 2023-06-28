@@ -7,7 +7,7 @@ use crate::data::Data;
 
 #[tokio::main]
 async fn main() {
-    // Build our client.
+    // Build our client
     let framework = poise::Framework::builder()
         .token(std::env::var("TOKEN").expect("No token found "))
         .intents(GatewayIntents::non_privileged())
