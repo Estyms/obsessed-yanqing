@@ -14,9 +14,12 @@ RUN cargo chef cook --release --recipe-path recipe.json
 COPY . .
 RUN cargo build --release --bin obsessed-yanqing
 
-FROM rust:slim-bullseye
+FROM bitnami/minideb:bullseye
 RUN apt-get update
 RUN apt-get install ca-certificates -y
+RUN apt-get clean autoclean
+RUN apt-get autoremove --yes
+RUN rm -rf /var/lib/{apt,dpkg,cache,log}/
 WORKDIR /root/
 COPY --from=builder /app/target/release/obsessed-yanqing .
 CMD ["./obsessed-yanqing"]
