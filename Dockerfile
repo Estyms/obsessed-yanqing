@@ -1,4 +1,4 @@
-FROM rust:slim-bullseye AS base
+FROM rust:slim-bookworm AS base
 RUN apt-get update
 RUN apt-get install libssl-dev pkg-config -y
 RUN cargo install cargo-chef
@@ -14,12 +14,8 @@ RUN cargo chef cook --release --recipe-path recipe.json
 COPY . .
 RUN cargo build --release --bin obsessed-yanqing
 
-FROM bitnami/minideb:bullseye
-RUN apt-get update
-RUN apt-get install ca-certificates -y
-RUN apt-get clean autoclean
-RUN apt-get autoremove --yes
-RUN rm -rf /var/lib/{apt,dpkg,cache,log}/
+FROM debian:bookworm-slim
+RUN apt-get update && apt-get install ca-certificates libssl3 -y && apt-get clean autoclean && apt-get autoremove --yes && rm -rf /var/lib/{apt,dpkg,cache,log}/
 WORKDIR /root/
 COPY --from=builder /app/target/release/obsessed-yanqing .
 CMD ["./obsessed-yanqing"]
