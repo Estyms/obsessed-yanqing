@@ -18,6 +18,7 @@ enum CharacterTab {
     Home,
     Review,
     Gear(usize),
+    Team
 }
 
 async fn create_menu(ctx: Context<'_>, chars: Vec<Characters>) -> ReplyHandle {
@@ -147,11 +148,48 @@ async fn get_character_build(character: &Character, index: usize) -> Option<Crea
     )
 }
 
+async fn get_character_team(character: &Character) -> Option<CreateEmbed> {
+    struct Team {
+        name: String,
+        member_1: Character,
+        member_2: Character,
+        member_3: Character,
+        member_4: Character
+    }
+
+    let teams = join_all(character.teams.as_ref().expect("No teams").into_iter().map(|team| async move {
+        Team {
+            name: team.name.clone(),
+            member_1: get_character_data(team.member_1.clone()).await.expect(format!("{} doesn't exist", team.member_1).as_str()),
+            member_2: get_character_data(team.member_2.clone()).await.expect(format!("{} doesn't exist", team.member_2).as_str()),
+            member_3: get_character_data(team.member_3.clone()).await.expect(format!("{} doesn't exist", team.member_3).as_str()),
+            member_4: get_character_data(team.member_4.clone()).await.expect(format!("{} doesn't exist", team.member_4).as_str())
+        }
+    })).await;
+
+    Some(
+        CreateEmbed::default()
+            .title(format!("{} {} {}", get_element_emote(&character.element), character.name, get_path_emote(&character.path)))
+            .set_footer(CreateEmbedFooter::default().text("Data from https://www.prydwen.gg/").to_owned())
+            .description(format!("{}\n{}\n",
+                                 ":star:".repeat(character.rarity.parse().unwrap_or(4)),
+                                 character.default_role))
+
+            .color(get_element_color(&character.element))
+            .thumbnail(format!("https://www.prydwen.gg{}", character.small_image.local_file.child_image_sharp.gatsby_image_data.images.fallback.src))
+            .fields(teams.into_iter().map(|team| {
+                (team.name, format!("{} / {} / {} / {}", team.member_1.name, team.member_2.name, team.member_3.name, team.member_4.name), false)
+            }))
+            .to_owned()
+    )
+}
+
 fn create_character_tabs_button<'a>(f: &'a mut CreateComponents, char: &Character, current_tab: &CharacterTab) -> &'a mut CreateComponents {
     let mut all_buttons: Vec<CreateButton> = vec![];
     let mut home_button: CreateButton = CreateButton::default();
     let mut review_button: CreateButton = CreateButton::default();
     let mut gear_button: CreateButton = CreateButton::default();
+    let mut team_button: CreateButton = CreateButton::default();
 
     // Home Button
     {
@@ -208,6 +246,22 @@ fn create_character_tabs_button<'a>(f: &'a mut CreateComponents, char: &Characte
     }
 
 
+    // Team Button
+    {
+        match current_tab {
+            CharacterTab::Team => { team_button.style(ButtonStyle::Success); }
+            _ => { team_button.style(ButtonStyle::Primary); }
+        };
+        match &char.teams {
+            None => { team_button.disabled(true); }
+            Some(_) => { team_button.disabled(false); }
+        };
+        team_button.label("Teams");
+        team_button.custom_id(CharacterTab::Team.to_button_id());
+        all_buttons.push(team_button);
+    }
+
+
     f.create_action_row(|r| {
         all_buttons.into_iter().for_each(|b| {
             r.add_button(b);
@@ -232,6 +286,9 @@ async fn menu_handler(ctx: Context<'_>, interaction: Arc<MessageComponentInterac
                 let n : usize = n % builds.len();
                 tab = CharacterTab::Gear(n);
                 get_character_build(&character, n).await
+            }
+            CharacterTab::Team => {
+                get_character_team(&character).await
             }
         };
         match looping {
@@ -288,6 +345,7 @@ async fn menu_handler(ctx: Context<'_>, interaction: Arc<MessageComponentInterac
                             _ => CharacterTab::Gear(0)
                         }
                     },
+                    "charactertab_team" => CharacterTab::Team,
                     _ => CharacterTab::Home
                 };
                 x.defer(ctx).await.expect("TODO: panic message");
@@ -318,7 +376,8 @@ impl CharacterTab {
         match self {
             CharacterTab::Home => "charactertab_home",
             CharacterTab::Review => "charactertab_review",
-            CharacterTab::Gear(_) => "charactertab_gear"
+            CharacterTab::Gear(_) => "charactertab_gear",
+            CharacterTab::Team => "charactertab_team"
         }
     }
 }
