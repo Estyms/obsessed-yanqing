@@ -7,4 +7,5 @@ pub mod allcharacters;
 pub mod character;
 pub mod description;
 pub mod proscons;
+pub mod cones;
 

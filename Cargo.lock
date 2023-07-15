@@ -800,7 +800,7 @@ dependencies = [
 
 [[package]]
 name = "obsessed-yanqing"
-version = "1.0.3"
+version = "1.0.4"
 dependencies = [
  "levenshtein",
  "poise",
