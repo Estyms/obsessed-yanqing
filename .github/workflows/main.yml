@@ -58,3 +58,4 @@ jobs:
           url: ${{ env.PORTAINER_API_WEBHOOK }}
           method: 'POST'
           customHeaders: ${{ env.PORTAINER_API_KEY }}
+          preventFailureOnNoResponse: true
