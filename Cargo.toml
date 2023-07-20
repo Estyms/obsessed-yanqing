@@ -1,7 +1,7 @@
 [package]
 name = "obsessed-yanqing"
 version = "1.1.2"
-edition = "2023"
+edition = "2021"
 authors = ["Evann Regnault"]
 license = "MIT"
 
