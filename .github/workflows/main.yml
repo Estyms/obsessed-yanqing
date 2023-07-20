@@ -23,7 +23,7 @@ jobs:
         with:
           url: ${{ env.PORTAINER_API_WEBHOOK }}
           method: 'POST'
-          customHeaders: '{"X-API-Key": "' + ${{secrets.PORTAINER_API_KEY}} + '"}'
+          customHeaders: format('{"X-API-Key": "{0}"', ${{secrets.PORTAINER_API_KEY}})
 
       - name: Checkout repository
         uses: actions/checkout@v2
