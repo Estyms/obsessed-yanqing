@@ -36,14 +36,14 @@ pub async fn get_nearest_characters(name: String) -> Option<Vec<Characters>> {
         match a.name.to_lowercase().contains(name.to_lowercase().as_str()) {
             true => {
                 match b.name.to_lowercase().contains(name.to_lowercase().as_str()) {
-                    true => return Ordering::Equal,
-                    false => return Ordering::Less
+                    true => Ordering::Equal,
+                    false => Ordering::Less
                 }
             }
             false => {
                 match b.name.to_lowercase().contains(name.to_lowercase().as_str()){
-                    true => return Ordering::Greater,
-                    false => return levenshtein(a.name.to_lowercase().as_str(), name.to_lowercase().as_str()).partial_cmp(&levenshtein(b.name.to_lowercase().as_str(), name.to_lowercase().as_str())).unwrap()
+                    true => Ordering::Greater,
+                    false => levenshtein(a.name.to_lowercase().as_str(), name.to_lowercase().as_str()).partial_cmp(&levenshtein(b.name.to_lowercase().as_str(), name.to_lowercase().as_str())).unwrap()
                 }
             }
         }

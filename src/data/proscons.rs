@@ -58,13 +58,13 @@ pub trait ProsCons {
     fn get_raw(&self) -> &str;
 }
 
-impl ProsCons for &Cons {
+impl ProsCons for Cons {
     fn get_raw(&self) -> &str {
         self.raw.as_str()
     }
 }
 
-impl ProsCons for &Pros {
+impl ProsCons for Pros {
     fn get_raw(&self) -> &str {
         self.raw.as_str()
     }
@@ -76,12 +76,23 @@ pub fn get_proscons_texts<T:ProsCons>(desc: &T) -> Option<Vec<String>> {
     let data : Result<Root, _> = serde_path_to_error::deserialize(js);
     match data {
         Ok(d) => {
-            Some(d.content.into_iter().map(|x| x.content.into_iter().map(|y| y.content.into_iter().map(|z| z.content.into_iter().map(|w| w.value)).flatten()).flatten()).flatten().collect())
+            Some(d.content.into_iter().flat_map(|x| x.content.into_iter().flat_map(|y| y.content.into_iter().flat_map(|z| z.content.into_iter().map(|w| w.value)))).collect())
         }
         Err(err) => {
             let path = err.path().to_string();
             println!("{}", path);
             None
+        }
+    }
+}
+
+
+pub fn format_proscons<T:ProsCons>(proscons : &Option<T>) -> String {
+    match proscons {
+        None => { "".to_string() }
+        Some(data) => {
+            let all_texts: Vec<String> = get_proscons_texts(data).unwrap_or(vec![]).into_iter().map(|x| format!("• {}", x)).collect();
+            all_texts.join("\n")
         }
     }
 }

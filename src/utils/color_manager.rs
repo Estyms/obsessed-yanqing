@@ -1,7 +1,7 @@
 use std::collections::HashMap;
 use serenity::utils::Color;
 
-pub fn get_element_color(name: &String) -> Color {
+pub fn get_element_color(name: &str) -> Color {
     let mut color_map = HashMap::new();
     color_map.insert("Physical", Color::new(9934743));
     color_map.insert("Fire", Color::new(15615805));
@@ -10,11 +10,11 @@ pub fn get_element_color(name: &String) -> Color {
     color_map.insert("Wind", Color::new(6410131));
     color_map.insert("Quantum", Color::new(6313929));
     color_map.insert("Imaginary", Color::new(15982903));
-    color_map.get(name.as_str()).unwrap_or(&Color::new(0)).to_owned()
+    color_map.get(name).unwrap_or(&Color::new(0)).to_owned()
 }
 
 #[allow(dead_code)]
-pub fn get_path_color(name: &String) -> Color {
+pub fn get_path_color(name: &str) -> Color {
     let mut color_map = HashMap::new();
     color_map.insert("Abundance", Color::new(6410131));
     color_map.insert("Destruction", Color::new(9934743));
@@ -23,5 +23,5 @@ pub fn get_path_color(name: &String) -> Color {
     color_map.insert("Hunt", Color::new(15615805));
     color_map.insert("Nihility", Color::new(6313929));
     color_map.insert("Preservation", Color::new(15982903));
-    color_map.get(name.as_str()).unwrap_or(&Color::new(0)).to_owned()
+    color_map.get(name).unwrap_or(&Color::new(0)).to_owned()
 }

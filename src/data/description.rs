@@ -66,7 +66,7 @@ pub fn get_all_texts<T:RawText>(desc: &T) -> Option<Vec<String>> {
     let data : Result<Root, _> = serde_path_to_error::deserialize(js);
     match data {
         Ok(d) => {
-            Some(d.content.into_iter().map(|x| x.content.into_iter().map(|y| y.value)).flatten().collect())
+            Some(d.content.into_iter().flat_map(|x| x.content.into_iter().map(|y| y.value)).collect())
         }
         Err(err) => {
             let path = err.path().to_string();

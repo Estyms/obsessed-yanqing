@@ -10,7 +10,7 @@ use crate::data::allcharacters::{Characters, get_nearest_characters};
 use crate::data::character::{Character, get_character_data};
 use crate::data::cones::get_light_cone;
 use crate::data::description::get_all_texts;
-use crate::data::proscons::get_proscons_texts;
+use crate::data::proscons::{format_proscons};
 use crate::utils::color_manager::get_element_color;
 use crate::utils::emote_manager::{get_element_emote, get_path_emote};
 
@@ -19,6 +19,18 @@ enum CharacterTab {
     Review,
     Gear(usize),
     Team
+}
+
+fn get_base_character_embed(character: &Character) -> CreateEmbed {
+    CreateEmbed::default()
+        .title(format!("{} {} {}", get_element_emote(&character.element), character.name, get_path_emote(&character.path)))
+        .set_footer(CreateEmbedFooter::default().text("Data from https://www.prydwen.gg/").to_owned())
+        .description(format!("{}\n{}\n",
+                             ":star:".repeat(character.rarity.parse().unwrap_or(4)),
+                             character.default_role))
+        .color(get_element_color(&character.element))
+        .thumbnail(format!("https://www.prydwen.gg{}", character.small_image.local_file.child_image_sharp.gatsby_image_data.images.fallback.src))
+        .to_owned()
 }
 
 async fn create_menu(ctx: Context<'_>, chars: Vec<Characters>) -> ReplyHandle {
@@ -54,49 +66,20 @@ async fn get_character_home(character: &Character) -> Option<CreateEmbed> {
         }
     };
     Some(
-        CreateEmbed::default()
-            .title(format!("{} {} {}", get_element_emote(&character.element), character.name, get_path_emote(&character.path)))
-            .set_footer(CreateEmbedFooter::default().text("Data from https://www.prydwen.gg/").to_owned())
+        get_base_character_embed(character)
             .description(format!("{}\n{}\n\n{}",
                                  ":star:".repeat(character.rarity.parse().unwrap_or(4)),
                                  character.default_role,
                                  desc))
-            .color(get_element_color(&character.element))
-            .thumbnail(format!("https://www.prydwen.gg{}", character.small_image.local_file.child_image_sharp.gatsby_image_data.images.fallback.src))
             .to_owned()
     )
 }
 
 async fn get_character_review(character: &Character) -> Option<CreateEmbed> {
-    let cons_data = &character.cons;
-    let cons = match cons_data {
-        None => { "".to_string() }
-        Some(data) => {
-            let all_texts: Vec<String> = get_proscons_texts(&data).unwrap_or(vec![]).into_iter().map(|x| format!("• {}", x)).collect();
-            all_texts.join("\n")
-        }
-    };
-
-    let pros_data = &character.pros;
-    let pros = match pros_data {
-        None => { "".to_string() }
-        Some(data) => {
-            let all_texts: Vec<String> = get_proscons_texts(&data).unwrap_or(vec![]).into_iter().map(|x| format!("• {}", x)).collect();
-            all_texts.join("\n")
-        }
-    };
-
     Some(
-        CreateEmbed::default()
-            .title(format!("{} {} {}", get_element_emote(&character.element), character.name, get_path_emote(&character.path)))
-            .set_footer(CreateEmbedFooter::default().text("Data from https://www.prydwen.gg/").to_owned())
-            .description(format!("{}\n{}",
-                                 ":star:".repeat(character.rarity.parse().unwrap_or(4)),
-                                 character.default_role))
-            .field(":green_circle: Pros", pros, false)
-            .field(":red_circle: Cons", cons, false)
-            .color(get_element_color(&character.element))
-            .thumbnail(format!("https://www.prydwen.gg{}", character.small_image.local_file.child_image_sharp.gatsby_image_data.images.fallback.src))
+        get_base_character_embed(character)
+            .field(":green_circle: Pros", format_proscons( &character.pros), false)
+            .field(":red_circle: Cons", format_proscons( &character.cons), false)
             .to_owned()
     )
 }
@@ -108,13 +91,8 @@ async fn get_character_build(character: &Character, index: usize) -> Option<Crea
     let light_cones = join_all(clone.cones.into_iter().map(|c| async { (c.super_field ,get_light_cone(c.cone).await.expect("Cone"))})).await;
 
     Some(
-        CreateEmbed::default()
-            .title(format!("{} {} {}", get_element_emote(&character.element), character.name, get_path_emote(&character.path)))
-            .set_footer(CreateEmbedFooter::default().text("Data from https://www.prydwen.gg/").to_owned())
-            .description(format!("{}\n{}",
-                                 ":star:".repeat(character.rarity.parse().unwrap_or(4)),
-                                 character.default_role))
-            .field(&chosen_build.name.as_str(), &chosen_build.comments.as_str(), false)
+        get_base_character_embed(character)
+            .field(chosen_build.name.as_str(), chosen_build.comments.as_str(), false)
 
 
             // STUFF
@@ -129,11 +107,11 @@ async fn get_character_build(character: &Character, index: usize) -> Option<Crea
 
 
             // STATS
-            .field("Body", chosen_build.body.iter().map(|f| format!("{}",f.stat)).collect::<Vec<String>>().join(" / "), true)
-            .field("Feet", chosen_build.feet.iter().map(|f| format!("{}",f.stat)).collect::<Vec<String>>().join(" / "), true)
+            .field("Body", chosen_build.body.iter().map(|f| f.stat.to_string()).collect::<Vec<String>>().join(" / "), true)
+            .field("Feet", chosen_build.feet.iter().map(|f| f.stat.to_string()).collect::<Vec<String>>().join(" / "), true)
             .field("\u{200B}", "\u{200B}", true)
-            .field("Planar Sphere", chosen_build.sphere.iter().map(|f| format!("{}",f.stat)).collect::<Vec<String>>().join(" / "), true)
-            .field("Link Rope", chosen_build.rope.iter().map(|f| format!("{}",f.stat)).collect::<Vec<String>>().join(" / "), true)
+            .field("Planar Sphere", chosen_build.sphere.iter().map(|f| f.stat.to_string()).collect::<Vec<String>>().join(" / "), true)
+            .field("Link Rope", chosen_build.rope.iter().map(|f| f.stat.to_string()).collect::<Vec<String>>().join(" / "), true)
             .field("\u{200B}", "\u{200B}", true)
 
             .field("Substats", &chosen_build.substats, false)
@@ -142,8 +120,6 @@ async fn get_character_build(character: &Character, index: usize) -> Option<Crea
             .field("Skill Priority", &chosen_build.skill_priority, false)
             .field("Major Traces Priority", &chosen_build.traces_priority, false)
 
-            .color(get_element_color(&character.element))
-            .thumbnail(format!("https://www.prydwen.gg{}", character.small_image.local_file.child_image_sharp.gatsby_image_data.images.fallback.src))
             .to_owned()
     )
 }
@@ -157,26 +133,18 @@ async fn get_character_team(character: &Character) -> Option<CreateEmbed> {
         member_4: Character
     }
 
-    let teams = join_all(character.teams.as_ref().expect("No teams").into_iter().map(|team| async move {
+    let teams = join_all(character.teams.as_ref().expect("No teams").iter().map(|team| async move {
         Team {
             name: team.name.clone(),
-            member_1: get_character_data(team.member_1.clone()).await.expect(format!("{} doesn't exist", team.member_1).as_str()),
-            member_2: get_character_data(team.member_2.clone()).await.expect(format!("{} doesn't exist", team.member_2).as_str()),
-            member_3: get_character_data(team.member_3.clone()).await.expect(format!("{} doesn't exist", team.member_3).as_str()),
-            member_4: get_character_data(team.member_4.clone()).await.expect(format!("{} doesn't exist", team.member_4).as_str())
+            member_1: get_character_data(team.member_1.clone()).await.unwrap_or_else(|| panic!("{} doesn't exist", team.member_1)),
+            member_2: get_character_data(team.member_2.clone()).await.unwrap_or_else(|| panic!("{} doesn't exist", team.member_2)),
+            member_3: get_character_data(team.member_3.clone()).await.unwrap_or_else(|| panic!("{} doesn't exist", team.member_3)),
+            member_4: get_character_data(team.member_4.clone()).await.unwrap_or_else(|| panic!("{} doesn't exist", team.member_4))
         }
     })).await;
 
     Some(
-        CreateEmbed::default()
-            .title(format!("{} {} {}", get_element_emote(&character.element), character.name, get_path_emote(&character.path)))
-            .set_footer(CreateEmbedFooter::default().text("Data from https://www.prydwen.gg/").to_owned())
-            .description(format!("{}\n{}\n",
-                                 ":star:".repeat(character.rarity.parse().unwrap_or(4)),
-                                 character.default_role))
-
-            .color(get_element_color(&character.element))
-            .thumbnail(format!("https://www.prydwen.gg{}", character.small_image.local_file.child_image_sharp.gatsby_image_data.images.fallback.src))
+        get_base_character_embed(character)
             .fields(teams.into_iter().map(|team| {
                 (team.name, format!("{} / {} / {} / {}", team.member_1.name, team.member_2.name, team.member_3.name, team.member_4.name), false)
             }))
@@ -293,21 +261,18 @@ async fn menu_handler(ctx: Context<'_>, interaction: Arc<MessageComponentInterac
         };
         match looping {
             true => {
-                match interaction
-                    .edit_original_interaction_response(&ctx, |d| {
+                    interaction.edit_original_interaction_response(&ctx, |d| {
                         match character_embed {
                             None => {}
                             Some(_) => { d.set_embed(character_embed.unwrap()); }
                         }
                         d.content("");
                         d.components(|f| create_character_tabs_button(&mut *f, &character, &tab))
-                    }).await {
-                    Ok(_) => {}
-                    Err(_) => {}
+                    }).await.expect("Cannot edit interaction message");
                 }
-            }
+
             false => {
-                match interaction
+                if (interaction
                     .create_interaction_response(&ctx, |r| {
                         r.interaction_response_data(|d| {
                             match character_embed {
@@ -318,10 +283,7 @@ async fn menu_handler(ctx: Context<'_>, interaction: Arc<MessageComponentInterac
                             d.ephemeral(true);
                             d.components(|f| create_character_tabs_button(&mut *f, &character, &tab))
                         })
-                    }).await {
-                    Ok(_) => { interaction.delete_followup_message(&ctx, interaction.message.id).await.unwrap(); }
-                    Err(_) => {}
-                }
+                    }).await).is_ok() { interaction.delete_followup_message(&ctx, interaction.message.id).await.unwrap(); }
             }
         }
 
@@ -330,7 +292,7 @@ async fn menu_handler(ctx: Context<'_>, interaction: Arc<MessageComponentInterac
             Err(_) => return
         };
 
-        let x = x.await_component_interaction(&ctx).timeout(Duration::from_secs(10 * 60)).await;
+        let x = x.await_component_interaction(ctx).timeout(Duration::from_secs(10 * 60)).await;
 
         match x {
             None => {}
@@ -357,7 +319,7 @@ async fn menu_handler(ctx: Context<'_>, interaction: Arc<MessageComponentInterac
 async fn choice_interaction_handler(ctx: Context<'_>, message: &ReplyHandle<'_>) {
     let message = message.clone().into_message().await.unwrap();
     let interaction =
-        match message.await_component_interaction(&ctx).timeout(Duration::from_secs(60 * 3)).await {
+        match message.await_component_interaction(ctx).timeout(Duration::from_secs(60 * 3)).await {
             Some(x) => {
                 x
             }
@@ -389,7 +351,7 @@ pub async fn character(
     #[description = "Character to Search"] user: String,
 ) -> Result<(), Error> {
     match get_nearest_characters(user).await {
-        None => { ctx.say(format!("Error occured, please see logs")).await? }
+        None => { ctx.say("Error occurred, please see logs".to_string()).await? }
         Some(characters) => {
             let handler = create_menu(ctx, characters).await;
             choice_interaction_handler(ctx, &handler).await;

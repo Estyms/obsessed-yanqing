@@ -240,7 +240,7 @@ pub async fn get_light_cone(name: String) -> Option<Cone> {
     let data : Result<PrydwenResponse<PrydwenCone>, _> = serde_path_to_error::deserialize(js);
     match data {
         Ok(d) => {
-            Some(d.result.data.all_characters.nodes.into_iter().filter(|f| f.slug.eq(name.as_str())).collect::<Vec<Cone>>().get(0).expect(format!("Cannot find {}", name).as_str()).clone())
+            Some(d.result.data.all_characters.nodes.into_iter().filter(|f| f.slug.eq(name.as_str())).collect::<Vec<Cone>>().get(0).unwrap_or_else(|| panic!("Cannot find {}", name)).clone())
         }
         Err(err) => {
             let path = err.path().to_string();
