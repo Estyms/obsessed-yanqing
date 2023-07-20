@@ -4,11 +4,14 @@ on:
   push:
     branches:
       - master
+      - action-test
 
 env:
   DOCKER_REGISTRY: r.evannregnault.dev
   DOCKER_USERNAME: ${{ secrets.DOCKER_USERNAME }}
   DOCKER_PASSWORD: ${{ secrets.DOCKER_PASSWORD }}
+  PORTAINER_API_KEY: ${{ secrets.PORTAINER_API_KEY }}
+  PORTAINER_API_WEBHOOK: ${{ secrets.PORTAINER_API_WEBHOOK }}
 
 jobs:
   build_and_push:
@@ -48,3 +51,10 @@ jobs:
             ${{ env.DOCKER_REGISTRY }}/obsessed-yanqing:${{ env.VERSION }}
           cache-from: type=gha
           cache-to: type=gha,mode=max
+
+      - name: Deploy to production
+        uses: fjogeleit/http-request-action@v1.14.1
+        with:
+          url: ${{ env.PORTAINER_API_WEBHOOK }}
+          method: 'POST'
+          customHeaders: ${{ env.PORTAINER_API_KEY }}
