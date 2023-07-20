@@ -105,7 +105,7 @@ async fn get_character_build(character: &Character, index: usize) -> Option<Crea
     let chosen_build = character.build_data.as_ref().expect("No builds").get(index).expect("Build doesnt exist");
 
     let clone = chosen_build.clone();
-    let light_cones = join_all(clone.cones.into_iter().map(|c| async { get_light_cone(c.cone).await.expect("Cone")})).await;
+    let light_cones = join_all(clone.cones.into_iter().map(|c| async { (c.super_field ,get_light_cone(c.cone).await.expect("Cone"))})).await;
 
     Some(
         CreateEmbed::default()
@@ -125,7 +125,7 @@ async fn get_character_build(character: &Character, index: usize) -> Option<Crea
 
             .field("Planetary Sets", chosen_build.planars.iter().enumerate().map(|(i, f)| format!("{}. {}", i+1, f.planar)).collect::<Vec<String>>().join("\n"), false)
 
-            .field("Light Cones", light_cones.iter().enumerate().map(|(i, c)| format!("{}. {}", i+1, c.name)).collect::<Vec<String>>().join("\n"), false)
+            .field("Light Cones", light_cones.iter().enumerate().map(|(i, (s, c))| format!("{}. {} (S{})", i+1, c.name, s)).collect::<Vec<String>>().join("\n"), false)
 
 
             // STATS
