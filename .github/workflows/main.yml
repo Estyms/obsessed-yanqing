@@ -4,17 +4,28 @@ on:
   push:
     branches:
       - master
+      - action-test
 
 env:
   DOCKER_REGISTRY: r.evannregnault.dev
   DOCKER_USERNAME: ${{ secrets.DOCKER_USERNAME }}
   DOCKER_PASSWORD: ${{ secrets.DOCKER_PASSWORD }}
+  PORTAINER_API_KEY: ${{ secrets.PORTAINER_API_KEY }}
+  PORTAINER_API_WEBHOOK: ${{ secrets.PORTAINER_API_WEBHOOK }}
 
 jobs:
   build_and_push:
     runs-on: ubuntu-latest
 
     steps:
+
+      - name: HTTP Request Action
+        uses: fjogeleit/http-request-action@v1.14.1
+        with:
+          url: ${{ env.PORTAINER_API_WEBHOOK }}
+          method: 'POST'
+          customHeaders: '{"X-API-Key": "' + ${{secrets.PORTAINER_API_KEY}} + '"}'
+
       - name: Checkout repository
         uses: actions/checkout@v2
 
