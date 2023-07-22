@@ -13,7 +13,8 @@ async fn main() {
         .intents(GatewayIntents::non_privileged())
         .options(poise::FrameworkOptions {
             commands: vec![
-                 commands::character::character()
+                commands::character::character(),
+                commands::events::create_event_message()
             ],
             ..Default::default()
         })

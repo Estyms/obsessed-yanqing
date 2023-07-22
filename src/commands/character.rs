@@ -344,7 +344,7 @@ impl CharacterTab {
     }
 }
 
-/// Displays your or another user's account creation date
+/// Search a character info
 #[poise::command(slash_command, prefix_command)]
 pub async fn character(
     ctx: Context<'_>,
