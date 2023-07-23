@@ -1,6 +1,8 @@
 use std::cmp::Ordering;
 use std::i32;
 use std::str::Split;
+use std::time::{SystemTime, UNIX_EPOCH};
+use chrono::{NaiveDateTime};
 use regex::{Regex};
 use select::document::Document;
 use select::node::Node;
@@ -33,10 +35,16 @@ struct BannerData {
 }
 
 #[derive(Clone)]
+struct EventTime {
+    start: Option<i64>,
+    end: Option<i64>
+}
+
+#[derive(Clone)]
 struct Event {
     name: String,
     description: Option<(String, String)>,
-    time: Option<String>,
+    time: EventTime,
     image: Option<String>,
     banner_data: Option<BannerData>,
     color: Option<Color>,
@@ -49,31 +57,62 @@ struct Code {
 }
 
 fn get_current_events_from_document(doc: &str) -> Vec<Event> {
+    let events = get_all_events(doc);
+
+    let current_time = SystemTime::now().duration_since(UNIX_EPOCH).expect("Time no longer works").as_secs() as i64;
+    events.into_iter().filter(|p| match p.time.start {
+        None => true,
+        Some(start) => {
+            start <= current_time && match p.time.end {
+                None => true,
+                Some(end) => current_time < end
+            }
+        }
+    }).collect()
+}
+
+fn get_upcoming_events_from_document(doc: &str) -> Vec<Event> {
+    let events = get_all_events(doc);
+
+    let current_time = SystemTime::now().duration_since(UNIX_EPOCH).expect("Time no longer works").as_secs() as i64;
+    events.into_iter().filter(|p| match p.time.start {
+        None => false,
+        Some(start) => {
+            start > current_time && match p.time.end {
+                None => true,
+                Some(end) => current_time < end
+            }
+        }
+    }).collect()
+}
+
+fn get_all_events(doc: &str) -> Vec<Event> {
     let document = Document::from(doc);
     let nodes = document.find(Class("event-tracker")).collect::<Vec<Node>>();
-    let event_nodes = nodes.get(0);
+    let mut events: Vec<Event> = vec![];
 
-    let mut events : Vec<Event> = vec![];
-
-    parse_events(&doc, event_nodes, &mut events);
-
+    let current_event_nodes = nodes.get(0);
+    parse_events(&doc, current_event_nodes, &mut events);
+    let upcoming_event_nodes = nodes.get(1);
+    parse_events(&doc, upcoming_event_nodes, &mut events);
     events
 }
+
 
 fn parse_events(doc: &&str, event_nodes: Option<&Node>, events: &mut Vec<Event>) {
     if let Some(x) = event_nodes {
         for event in x.find(Class("accordion-item")) {
-            let mut attributes = event.attr("class").expect("").split(' ');
+            let mut attributes = event.attr("class").expect("Cant find class attribute").split(' ');
             if attributes.clone().count() != 2 { continue; }
 
 
             let name = event.find(Class("event-name")).next().expect("Cannot find name").text();
 
-            let (image, color) = get_image_color(&doc, &mut attributes);
+            let (image, color) = get_image_color(doc, &mut attributes);
 
             let description = get_description(event);
 
-            let time = event.find(Class("time")).next().map(|x| x.text());
+            let time = get_time(event);
 
             let event_type = get_event_type(event, &description);
 
@@ -84,15 +123,29 @@ fn parse_events(doc: &&str, event_nodes: Option<&Node>, events: &mut Vec<Event>)
     };
 }
 
-fn get_upcoming_events_from_document(doc: &str) -> Vec<Event> {
-    let document = Document::from(doc);
-    let nodes = document.find(Class("event-tracker")).collect::<Vec<Node>>();
-    let event_nodes = nodes.get(1);
-    let mut events : Vec<Event> = vec![];
 
-    parse_events(&doc, event_nodes, &mut events);
-    events
+fn get_date(date_string: &str) -> Option<String> {
+    let date_regex = Regex::new(r"(?m)[0-9]{4}/(?:1[0-9]|0[1-9])/(?:0[1-9]|[1-2][0-9]|3[0-1]) (?:(?:[01][0-9]|2[0-3])|[0-9]):[0-5][0-9]").expect("Cannot compile time regex");
+    date_regex.captures(date_string).map(|x| x.get(0).expect("No captures found").as_str().to_string())
 }
+
+fn get_time(event: Node) -> EventTime {
+    event.find(Class("duration")).next().map(|x| {
+        let text = x.text();
+        let dates = Regex::new(r" [-–] ").expect("Can't create split time regex").split(text.as_str()).collect::<Vec<&str>>();
+        let start_date_text = dates.first().expect("Cannot get start date string").to_owned();
+        let end_date_text = dates.get(1).expect("Cannot get end date string").to_owned();
+        let start = get_date(start_date_text).map(|x| {
+            NaiveDateTime::parse_from_str(x.as_str(), "%Y/%m/%d %H:%M").expect("Date").timestamp()
+        });
+        let end = get_date(end_date_text).map(|x| {
+            NaiveDateTime::parse_from_str(x.as_str(), "%Y/%m/%d %H:%M").expect("Date").timestamp()
+        });
+
+        EventTime {start, end}
+    }).expect("No time found")
+}
+
 
 fn get_codes_from_document(doc: &str) -> Option<Vec<Code>> {
     let document = Document::from(doc);
@@ -125,7 +178,7 @@ fn get_description(event: Node) -> Option<(String, String)> {
     let description = event.find(Class("description")).next().map(|x| {
         let text = x.text();
         let desc = text.split(": ").collect::<Vec<&str>>();
-        (desc.first().expect("").to_string(), desc.get(1).expect("").to_string())
+        (desc.first().expect("Cannot get description title").to_string(), desc.get(1).expect("Cannot get description text").to_string())
     });
     description
 }
@@ -163,7 +216,7 @@ fn get_event_type(event: Node, description: &Option<(String, String)>) -> EventT
 fn get_banner_data(event: Node) -> Option<BannerData> {
     let five_stars = event.find(Class("rarity-5").descendant(Name("picture")).descendant(Name("img"))).next().map(|x| x.attr("alt").expect("No alt on five star image").to_string());
     let four_stars = event.find(Class("rarity-4")).take(3).map(|four_stars_node| {
-        four_stars_node.find(Name("picture").descendant(Name("img"))).next().map(|x| x.attr("alt").expect("No alt on four star image").to_string()).expect("")
+        four_stars_node.find(Name("picture").descendant(Name("img"))).next().map(|x| x.attr("alt").expect("No alt on four star image").to_string()).expect("Cannot get four stars names")
     }).collect::<Vec<String>>();
 
     match five_stars {
@@ -176,7 +229,7 @@ fn get_banner_data(event: Node) -> Option<BannerData> {
 }
 
 fn create_current_events_embeds(doc : &str) -> Vec<CreateEmbed> {
-    let mut events = get_current_events_from_document(doc);
+    let mut events = get_current_events_from_document(doc).into_iter().take(8).collect::<Vec<Event>>();
 
     events.sort_by(sort_events());
 
@@ -193,8 +246,8 @@ fn create_current_events_embeds(doc : &str) -> Vec<CreateEmbed> {
             embed = embed.color(color);
         }
 
-        if let Some(time) = event.time {
-            embed = embed.description(format!("Time remaining : {}", time));
+        if let Some(time) = event.time.end {
+            embed = embed.description(format!("Ends <t:{}:R>", time));
         }
 
         if let Some(description) = event.description {
@@ -217,17 +270,16 @@ fn create_upcoming_embed(doc : &str) -> Option<CreateEmbed> {
     events.sort_by(sort_events());
     if events.is_empty() {return None;}
 
-    let banner_events : Vec<Event> = events.to_vec().into_iter().filter(|p| matches!(p.event_type, EventType::ConeBanner | EventType::CharacterBanner)).collect();
-
-    let other_events: Vec<Event> = events.iter().cloned().filter(|p| !matches!(p.event_type, EventType::ConeBanner | EventType::CharacterBanner)).collect();
+    let banner_events : Vec<Event> = events.iter().cloned().filter(|p| matches!(p.event_type, EventType::ConeBanner | EventType::CharacterBanner)).collect();
+    let other_events: Vec<Event> = events.iter().cloned().filter(|p| !matches!(p.event_type, EventType::ConeBanner | EventType::CharacterBanner)).rev().collect();
 
     Some(CreateEmbed::default()
         .title("Upcoming Events")
         .field("Banners", banner_events.iter().map(|banner| {
-            format!("{} - **{}** : Starts in {}", banner.name, banner.banner_data.as_ref().expect("").five_stars, banner.time.as_ref().expect(""))
+            format!("{} - **{}** : Starts <t:{}:R>", banner.name, banner.banner_data.as_ref().expect("No Banner Data on Banner").five_stars, banner.time.start.expect("No start time for Upcomming Event"))
         }).collect::<Vec<String>>().join("\n"),false)
         .field("Events", other_events.iter().map(|event| {
-            format!("{} : Starts in {}", event.name, event.time.as_ref().expect(""))
+            format!("{} : Starts <t:{}:R>", event.name, event.time.start.expect("No start time for Upcomming Event"))
         }).collect::<Vec<String>>().join("\n"),false)
         .color(Color::from_rgb(rand::random(), rand::random(), rand::random()))
         .footer(|f| f.text("Data from https://www.prydwen.gg"))
@@ -245,6 +297,7 @@ fn create_codes_embed(doc : &str) -> Option<CreateEmbed> {
                         false => format!("- {}", code.code)
                     }
                 }).collect::<Vec<String>>().join("\n"))
+        .url("https://hsr.hoyoverse.com/gift")
         .color(Color::from_rgb(rand::random(), rand::random(), rand::random()))
         .footer(|f| f.text("Data from https://www.prydwen.gg"))
         .to_owned())
@@ -253,6 +306,7 @@ fn create_codes_embed(doc : &str) -> Option<CreateEmbed> {
 
 pub async fn create_event_embeds() -> Vec<CreateEmbed> {
     let doc = get_main_prydwen().await;
+
     let mut embeds: Vec<CreateEmbed> = vec![];
     embeds.append(create_current_events_embeds(&doc).as_mut());
     if let Some(embed) = create_upcoming_embed(&doc) {
@@ -281,7 +335,17 @@ fn sort_events() -> fn(&Event, &Event) -> Ordering {
             (EventType::Other, EventType::ConeBanner) => Ordering::Greater,
             (EventType::ConeBanner, EventType::CharacterBanner) => Ordering::Greater,
 
-            (_, _) => { Ordering::Equal }
+            (_, _) => {
+                match (a.time.end, b.time.end) {
+                    (Some(a_end), Some(b_end)) => {
+                        match a_end > b_end {
+                            true => Ordering::Greater,
+                            false => Ordering::Less
+                        }
+                    }
+                    _ => Ordering::Equal
+                }
+            }
         }
     }
 }
@@ -294,7 +358,7 @@ pub async fn create_event_message(
     #[description = "Create Event Tab"] channel: Channel
 ) -> Result<(), Error> {
 
-    let message = get_discord_status_message(ctx.guild().expect("").id.0).await;
+    let message = get_discord_status_message(ctx.guild().expect("Message not sent in guild").id.0).await;
     if let Some(e) = message {
         let rm = ChannelId::from(e.channel_id as u64)
             .message(&ctx.http(), MessageId::from(e.message_id as u64))

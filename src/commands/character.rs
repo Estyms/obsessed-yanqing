@@ -202,7 +202,7 @@ fn create_character_tabs_button<'a>(f: &'a mut CreateComponents, char: &Characte
                 gear_button.disabled(false);
                 match current_tab {
                     CharacterTab::Gear(n) => {
-                        gear_button.label(format!("Gear {}/{}", n+1, char.build_data.as_ref().expect("").len()));
+                        gear_button.label(format!("Gear {}/{}", n+1, char.build_data.as_ref().expect("Cannot find gear").len()));
                     }
                     _ => {gear_button.label("Gear");}
                 }

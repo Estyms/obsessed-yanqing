@@ -3,13 +3,17 @@ mod data;
 mod utils;
 mod mongo;
 
+use std::any::Any;
+use std::fmt::Display;
+use std::hash::Hash;
 use std::time::Duration;
+use poise::FrameworkError;
 use poise::serenity_prelude::GatewayIntents;
 use serenity::client::Context;
 use serenity::model::id::ChannelId;
 use serenity::model::prelude::Activity;
 use crate::commands::events::create_event_embeds;
-use crate::data::{Data};
+use crate::data::{Data, Error};
 use crate::mongo::core::get_all_status_messages;
 
 fn update_daily(ctx: Context) {
