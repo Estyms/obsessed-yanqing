@@ -1,6 +1,6 @@
 [package]
 name = "obsessed-yanqing"
-version = "1.2.0"
+version = "1.3.0"
 edition = "2021"
 authors = ["Evann Regnault"]
 license = "MIT"
@@ -17,3 +17,5 @@ serde = "1.0.160"
 serde_path_to_error = "0.1.11"
 select = "0.6.0"
 regex = "1.9.1"
+rand = "0.8.5"
+mongodb = "2.6.0"

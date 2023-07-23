@@ -1,16 +1,24 @@
 use std::cmp::Ordering;
+use std::i32;
+use std::str::Split;
 use regex::{Regex};
 use select::document::Document;
+use select::node::Node;
 use select::predicate::{Class, Name, Predicate};
 use serenity::builder::CreateEmbed;
+use serenity::http::CacheHttp;
 use serenity::model::channel::Channel;
+use serenity::model::id::{ChannelId, MessageId};
+use serenity::utils::{Color, Colour};
 use crate::data::{Context, Error};
+use crate::mongo::core::{add_discord_status_message, get_discord_status_message, StatusMessage};
 
 
 pub async fn get_main_prydwen() -> String {
     reqwest::get("https://www.prydwen.gg/star-rail/").await.expect("Cannot get Prydwen").text().await.expect("Cannot get data")
 }
 
+#[derive(Clone)]
 enum EventType {
     CharacterBanner,
     ConeBanner,
@@ -18,104 +26,159 @@ enum EventType {
     Other,
 }
 
+#[derive(Clone)]
 struct BannerData {
     five_stars: String,
     four_stars: Vec<String>
 }
 
+#[derive(Clone)]
 struct Event {
     name: String,
     description: Option<(String, String)>,
     time: Option<String>,
     image: Option<String>,
     banner_data: Option<BannerData>,
+    color: Option<Color>,
     event_type: EventType
 }
 
-async fn get_events_from_document(doc: String) -> Vec<Event> {
-    let document = Document::from(doc.as_str());
-    let event_nodes = document.find(Class("event-tracker")).take(1).next();
+struct Code {
+    code: String,
+    new: bool
+}
+
+fn get_current_events_from_document(doc: &str) -> Vec<Event> {
+    let document = Document::from(doc);
+    let nodes = document.find(Class("event-tracker")).collect::<Vec<Node>>();
+    let event_nodes = nodes.get(0);
 
     let mut events : Vec<Event> = vec![];
 
-    if let Some(x) = event_nodes {
-        for event in x.find(Class("accordion-item")) {
-            let mut attributes =  event.attr("class").expect("").split(' ');
-            if attributes.clone().count() != 2 {continue;}
+    parse_events(&doc, event_nodes, &mut events);
 
-            let id = attributes.find(|p| !p.to_owned().eq("accordion-item")).expect("Error while getting other id");
-
-            let name = event.find(Class("event-name")).next().expect("Cannot find name").text();
-
-            let image_regex = Regex::new(r".accordion-item\.idofevent button\{background-color:#[0-9a-f]{6};background-image:url\((/static/.*?\.jpg)\)}".replace("idofevent", id).as_str()).expect("Cannot created REGEX");
-            let image = image_regex.captures(doc.as_str()).expect("Cannot scan document").get(1).map(|x| format!("https://www.prydwen.gg{}", x.as_str()));
-
-            let description = event.find(Class("description")).next().map(|x| {
-                let text = x.text();
-                let desc = text.split(": ").collect::<Vec<&str>>();
-                (desc.first().expect("").to_string(), desc.get(1).expect("").to_string())
-            });
-
-            let time = event.find(Class("time")).next().map(|x| x.text());
-
-            let event_type = match &description {
-                None => {
-                    match event.find(Class("featured-characters")).next() {
-                        None => EventType::ConeBanner,
-                        Some(_) => EventType::CharacterBanner
-                    }
-                }
-                Some(desc) => {
-                    match desc.0.as_str() {
-                        "Memory Turbulence" => EventType::Memory,
-                        _ => EventType::Other
-                    }
-                }
-            };
-
-
-            let five_stars = event.find(Class("rarity-5").descendant(Name("picture")).descendant(Name("img"))).next().map(|x| x.attr("alt").expect("No alt on five star image").to_string());
-            let four_stars = event.find(Class("rarity-4")).take(3).map(|four_stars_node| {
-                four_stars_node.find(Name("picture").descendant(Name("img"))).next().map(|x| x.attr("alt").expect("No alt on four star image").to_string()).expect("")
-            }).collect::<Vec<String>>();
-
-            let banner_data = match five_stars {
-                None => None,
-                Some(x) => match four_stars.len() {
-                    3 => Some(BannerData { five_stars: x, four_stars}),
-                    _ => None
-                }
-            };
-
-            events.push(Event {name, description, time, image, banner_data, event_type })
-        }
-    };
     events
 }
 
-pub async fn create_events_embeds() -> Vec<CreateEmbed> {
-    let doc = get_main_prydwen().await;
-    let mut events = get_events_from_document(doc).await;
+fn parse_events(doc: &&str, event_nodes: Option<&Node>, events: &mut Vec<Event>) {
+    if let Some(x) = event_nodes {
+        for event in x.find(Class("accordion-item")) {
+            let mut attributes = event.attr("class").expect("").split(' ');
+            if attributes.clone().count() != 2 { continue; }
 
-    events.sort_by(|a, b| {
-        match (&a.event_type,&b.event_type) {
-            (EventType::CharacterBanner, EventType::ConeBanner) => Ordering::Less,
-            (EventType::CharacterBanner, EventType::Other) => Ordering::Less,
-            (EventType::CharacterBanner, EventType::Memory) => Ordering::Less,
-            (EventType::ConeBanner, EventType::Other) => Ordering::Less,
-            (EventType::ConeBanner, EventType::Memory) => Ordering::Less,
-            (EventType::Other, EventType::Memory) => Ordering::Less,
 
-            (EventType::Memory, EventType::Other) => Ordering::Greater,
-            (EventType::Memory, EventType::ConeBanner) => Ordering::Greater,
-            (EventType::Memory, EventType::CharacterBanner) => Ordering::Greater,
-            (EventType::Other, EventType::CharacterBanner) => Ordering::Greater,
-            (EventType::Other, EventType::ConeBanner) => Ordering::Greater,
-            (EventType::ConeBanner, EventType::CharacterBanner) => Ordering::Greater,
+            let name = event.find(Class("event-name")).next().expect("Cannot find name").text();
 
-            (_, _) => {Ordering::Equal}
+            let (image, color) = get_image_color(&doc, &mut attributes);
+
+            let description = get_description(event);
+
+            let time = event.find(Class("time")).next().map(|x| x.text());
+
+            let event_type = get_event_type(event, &description);
+
+            let banner_data = get_banner_data(event);
+
+            events.push(Event { name, description, time, image, banner_data, color, event_type })
         }
+    };
+}
+
+fn get_upcoming_events_from_document(doc: &str) -> Vec<Event> {
+    let document = Document::from(doc);
+    let nodes = document.find(Class("event-tracker")).collect::<Vec<Node>>();
+    let event_nodes = nodes.get(1);
+    let mut events : Vec<Event> = vec![];
+
+    parse_events(&doc, event_nodes, &mut events);
+    events
+}
+
+fn get_codes_from_document(doc: &str) -> Option<Vec<Code>> {
+    let document = Document::from(doc);
+    document.find(Class("codes")).next().map( |codes | {
+        let mut x = codes.find(Class("code")).map(|code| {
+            match code.find(Class("new")).next() {
+                None => Code {
+                    code: code.text(),
+                    new: false
+                },
+                Some(_) => Code {
+                    code: code.text().split(' ').collect::<Vec<&str>>().first().expect("Cannot get code").to_string(),
+                    new: true
+                },
+            }
+        }).collect::<Vec<Code>>();
+
+        x.sort_by(|a,b| match (a.new,b.new) {
+            (true, false) => Ordering::Less,
+            (false, true) => Ordering::Less,
+            _ => Ordering::Equal
+        });
+
+        x
+    })
+}
+
+
+fn get_description(event: Node) -> Option<(String, String)> {
+    let description = event.find(Class("description")).next().map(|x| {
+        let text = x.text();
+        let desc = text.split(": ").collect::<Vec<&str>>();
+        (desc.first().expect("").to_string(), desc.get(1).expect("").to_string())
     });
+    description
+}
+
+fn get_image_color(doc: &str, attributes: &mut Split<char>) -> (Option<String>, Option<Colour>) {
+    let id = attributes.find(|p| !p.to_owned().eq("accordion-item")).expect("Error while getting other id");
+    let image_regex = Regex::new(r".accordion-item\.idofevent button\{background-color:#([0-9a-f]{6});background-image:url\((/static/.*?\.jpg)\)}".replace("idofevent", id).as_str()).expect("Cannot created REGEX");
+    let captures = image_regex.captures(doc).expect("Cannot scan document");
+    let color = captures.get(1).map(|c| {
+        let num = i32::from_str_radix(c.as_str(), 16).expect("Cannot convert color to int");
+        Color::from_rgb(((num >> 16) & 0xff) as u8, ((num >> 8) & 0xff) as u8, (num & 0xff) as u8)
+    });
+    let image = captures.get(2).map(|x| format!("https://www.prydwen.gg{}", x.as_str()));
+    (image, color)
+}
+
+fn get_event_type(event: Node, description: &Option<(String, String)>) -> EventType {
+    let event_type = match &description {
+        None => {
+            match event.find(Class("featured-characters")).next() {
+                None => EventType::ConeBanner,
+                Some(_) => EventType::CharacterBanner
+            }
+        }
+        Some(desc) => {
+            match desc.0.as_str() {
+                "Memory Turbulence" => EventType::Memory,
+                _ => EventType::Other
+            }
+        }
+    };
+    event_type
+}
+
+fn get_banner_data(event: Node) -> Option<BannerData> {
+    let five_stars = event.find(Class("rarity-5").descendant(Name("picture")).descendant(Name("img"))).next().map(|x| x.attr("alt").expect("No alt on five star image").to_string());
+    let four_stars = event.find(Class("rarity-4")).take(3).map(|four_stars_node| {
+        four_stars_node.find(Name("picture").descendant(Name("img"))).next().map(|x| x.attr("alt").expect("No alt on four star image").to_string()).expect("")
+    }).collect::<Vec<String>>();
+
+    match five_stars {
+        None => None,
+        Some(x) => match four_stars.len() {
+            3 => Some(BannerData { five_stars: x, four_stars }),
+            _ => None
+        }
+    }
+}
+
+fn create_current_events_embeds(doc : &str) -> Vec<CreateEmbed> {
+    let mut events = get_current_events_from_document(doc);
+
+    events.sort_by(sort_events());
 
     events.into_iter().map(|event| {
         let mut default = CreateEmbed::default();
@@ -124,6 +187,10 @@ pub async fn create_events_embeds() -> Vec<CreateEmbed> {
 
         if let Some(image) = event.image {
             embed = embed.image(image);
+        }
+
+        if let Some(color) = event.color {
+            embed = embed.color(color);
         }
 
         if let Some(time) = event.time {
@@ -140,8 +207,83 @@ pub async fn create_events_embeds() -> Vec<CreateEmbed> {
                 .field("4 Stars", format!("- {}", banner_infos.four_stars.join("\n- ")), false);
         }
 
-        embed.to_owned()
+
+        embed.footer(|f| f.text("Data from https://www.prydwen.gg")).to_owned()
     }).collect::<Vec<CreateEmbed>>()
+}
+
+fn create_upcoming_embed(doc : &str) -> Option<CreateEmbed> {
+    let mut events = get_upcoming_events_from_document(doc);
+    events.sort_by(sort_events());
+    if events.is_empty() {return None;}
+
+    let banner_events : Vec<Event> = events.to_vec().into_iter().filter(|p| matches!(p.event_type, EventType::ConeBanner | EventType::CharacterBanner)).collect();
+
+    let other_events: Vec<Event> = events.iter().cloned().filter(|p| !matches!(p.event_type, EventType::ConeBanner | EventType::CharacterBanner)).collect();
+
+    Some(CreateEmbed::default()
+        .title("Upcoming Events")
+        .field("Banners", banner_events.iter().map(|banner| {
+            format!("{} - **{}** : Starts in {}", banner.name, banner.banner_data.as_ref().expect("").five_stars, banner.time.as_ref().expect(""))
+        }).collect::<Vec<String>>().join("\n"),false)
+        .field("Events", other_events.iter().map(|event| {
+            format!("{} : Starts in {}", event.name, event.time.as_ref().expect(""))
+        }).collect::<Vec<String>>().join("\n"),false)
+        .color(Color::from_rgb(rand::random(), rand::random(), rand::random()))
+        .footer(|f| f.text("Data from https://www.prydwen.gg"))
+        .to_owned()
+    )
+}
+
+fn create_codes_embed(doc : &str) -> Option<CreateEmbed> {
+    let codes = get_codes_from_document(doc);
+    codes.map(|codes| CreateEmbed::default()
+                .title("Codes")
+                .description(codes.iter().map(|code| {
+                    match code.new {
+                        true => format!("- {} :sparkles:", code.code),
+                        false => format!("- {}", code.code)
+                    }
+                }).collect::<Vec<String>>().join("\n"))
+        .color(Color::from_rgb(rand::random(), rand::random(), rand::random()))
+        .footer(|f| f.text("Data from https://www.prydwen.gg"))
+        .to_owned())
+}
+
+
+pub async fn create_event_embeds() -> Vec<CreateEmbed> {
+    let doc = get_main_prydwen().await;
+    let mut embeds: Vec<CreateEmbed> = vec![];
+    embeds.append(create_current_events_embeds(&doc).as_mut());
+    if let Some(embed) = create_upcoming_embed(&doc) {
+        embeds.push(embed);
+    };
+    if let Some(embed) = create_codes_embed(&doc) {
+        embeds.push(embed);
+    };
+    embeds
+}
+
+fn sort_events() -> fn(&Event, &Event) -> Ordering {
+    |a, b| {
+        match (&a.event_type, &b.event_type) {
+            (EventType::CharacterBanner, EventType::ConeBanner) => Ordering::Less,
+            (EventType::CharacterBanner, EventType::Other) => Ordering::Less,
+            (EventType::CharacterBanner, EventType::Memory) => Ordering::Less,
+            (EventType::ConeBanner, EventType::Other) => Ordering::Less,
+            (EventType::ConeBanner, EventType::Memory) => Ordering::Less,
+            (EventType::Other, EventType::Memory) => Ordering::Less,
+
+            (EventType::Memory, EventType::Other) => Ordering::Greater,
+            (EventType::Memory, EventType::ConeBanner) => Ordering::Greater,
+            (EventType::Memory, EventType::CharacterBanner) => Ordering::Greater,
+            (EventType::Other, EventType::CharacterBanner) => Ordering::Greater,
+            (EventType::Other, EventType::ConeBanner) => Ordering::Greater,
+            (EventType::ConeBanner, EventType::CharacterBanner) => Ordering::Greater,
+
+            (_, _) => { Ordering::Equal }
+        }
+    }
 }
 
 
@@ -151,16 +293,42 @@ pub async fn create_event_message(
     ctx: Context<'_>,
     #[description = "Create Event Tab"] channel: Channel
 ) -> Result<(), Error> {
-    let embeds = create_events_embeds().await;
-    channel.id().send_message(ctx, |f| {
-        f.set_embeds(embeds)
+
+    let message = get_discord_status_message(ctx.guild().expect("").id.0).await;
+    if let Some(e) = message {
+        let rm = ChannelId::from(e.channel_id as u64)
+            .message(&ctx.http(), MessageId::from(e.message_id as u64))
+            .await;
+        match rm {
+            msg if rm.is_ok() => {
+                msg.unwrap().delete(&ctx.http()).await.unwrap();
+            }
+            _ => {}
+        }
+    }
+
+    let embeds = create_event_embeds().await;
+
+    let msg = channel.id().send_message(ctx, |f| {
+        f.add_embeds(embeds)
     }).await.unwrap();
+
+    let sm = StatusMessage {
+        message_id: *msg.id.as_u64() as i64,
+        channel_id: msg.channel_id.0 as i64,
+        guild_id: ctx.guild_id().unwrap().0 as i64
+    };
+
+    add_discord_status_message(sm).await;
+
     let channel_name = channel.id().name(ctx).await.unwrap();
+
     ctx.send(|f| {
         f.embed(|e|{
             e.title("Success !")
                 .description(format!("The event message has been created in #{}", channel_name))
         }).ephemeral(true)
     }).await.expect("TODO: panic message");
+
     Ok(())
 }
