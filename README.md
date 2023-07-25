@@ -1,6 +1,6 @@
 # Obsessed Yanqing
 
-This is a bot whose main purpose is to give as much infomrations as possible about Honkai Star Rail.
+This is a bot whose main purpose is to give as much information as possible about Honkai Star Rail.
 
 > ⚠️ Disclaimer :  All Data is fetched from [Prydwen.gg](https://prydwen.gg)
 
@@ -16,7 +16,7 @@ choice.</br>This message will contain:
 
 > In order to update this message every hour, three information are stored in a database : Guild id, Channel id, Message id.
 > 
-> ❗ Those are the only information stored by the bot !
+> ❗ Those are the only sensibles information stored by the bot !
 
 
 ### Character Data
@@ -40,7 +40,16 @@ You'll also need a mongoDB server alongside it.
 TOKEN : The discord bot's token
 MONGO_HOST : The hostname of the mongodb instance
 MONGO_PORT : The port of the mongodb instance
+METRICS_ENABLED : Put to true to enable metrics
+METRICS_PORT : Port on which the metrics server will listen
 ```
+
+## Metrics
+
+A prometheus compatible server is running in the background of the bot running on the port 8080.<br/>
+For the moment, it provides two information:
+- `server_count` The number of server the bot is in.
+- `character_command_count` The number of time a character has been searched.
 
 ## APIs / Libraries
 

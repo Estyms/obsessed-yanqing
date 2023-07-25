@@ -11,6 +11,7 @@ use crate::data::character::{Character, get_character_data};
 use crate::data::cones::get_light_cone;
 use crate::data::description::get_all_texts;
 use crate::data::proscons::{format_proscons};
+use crate::metrics::characters::CharacterLabels;
 use crate::utils::color_manager::get_element_color;
 use crate::utils::emote_manager::{get_element_emote, get_path_emote};
 
@@ -329,6 +330,9 @@ async fn choice_interaction_handler(ctx: Context<'_>, message: &ReplyHandle<'_>)
             }
         };
     let character_string = &interaction.data.values[0];
+    ctx.data().registries.character_count.get_or_create(&CharacterLabels{
+        character_name: character_string.clone()
+    }).inc();
     let character = get_character_data(character_string.to_string()).await.unwrap();
     menu_handler(ctx, interaction, character, CharacterTab::Home).await;
 }
