@@ -340,15 +340,10 @@ pub struct VoiceActors {
 #[derive(Default, Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct Ratings {
-    #[serde(rename = "story_early")]
-    pub story_early: String,
-    #[serde(rename = "story_late")]
-    pub story_late: String,
-    pub sim: String,
-    pub bosses: String,
-    pub farming: String,
+    pub solo: String,
+    pub blast: String,
+    pub aoe: String,
 }
-
 #[derive(Default, Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct BuildDaum {
