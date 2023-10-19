@@ -132,7 +132,8 @@ fn get_date(date_string: &str) -> Option<String> {
 fn get_time(event: Node) -> EventTime {
     event.find(Class("duration")).next().map(|x| {
         let text = x.text();
-        let dates = Regex::new(r" [-–] ").expect("Can't create split time regex").split(text.as_str()).collect::<Vec<&str>>();
+        let dates = Regex::new(r"[-—–]").expect("Can't create split time regex").split(text.as_str()).collect::<Vec<&str>>();
+        println!("{:?}", dates);
         let start_date_text = dates.first().expect("Cannot get start date string").to_owned();
         let end_date_text = dates.get(1).expect("Cannot get end date string").to_owned();
         let start = get_date(start_date_text).map(|x| {

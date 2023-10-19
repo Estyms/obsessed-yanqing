@@ -10,7 +10,6 @@ env:
   DOCKER_REGISTRY: r.regnault.dev
   DOCKER_USERNAME: ${{ secrets.DOCKER_USERNAME }}
   DOCKER_PASSWORD: ${{ secrets.DOCKER_PASSWORD }}
-  PORTAINER_API_KEY: ${{ secrets.PORTAINER_API_KEY }}
   PORTAINER_API_WEBHOOK: ${{ secrets.PORTAINER_API_WEBHOOK }}
 
 jobs:
@@ -55,7 +54,6 @@ jobs:
       - name: Deploy to production
         uses: fjogeleit/http-request-action@v1.14.1
         with:
-          url: ${{ env.PORTAINER_API_WEBHOOK }}
+          url: ${{ format('{0}?tag={1}',env.PORTAINER_API_WEBHOOK, env.VERSION) }}
           method: 'POST'
-          customHeaders: ${{ env.PORTAINER_API_KEY }}
           preventFailureOnNoResponse: true

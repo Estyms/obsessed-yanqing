@@ -29,7 +29,7 @@ pub struct Character {
     pub full_image: FullImage,
     pub description: Option<Description>,
     pub default_role: String,
-    pub affiliation: String,
+    pub affiliation: Option<String>,
     pub rarity: String,
     pub element: String,
     pub path: String,

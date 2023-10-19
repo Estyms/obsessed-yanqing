@@ -1390,7 +1390,7 @@ dependencies = [
 
 [[package]]
 name = "obsessed-yanqing"
-version = "1.4.0"
+version = "1.4.3"
 dependencies = [
  "chrono",
  "levenshtein",
