@@ -135,13 +135,18 @@ fn get_time(event: Node) -> EventTime {
         let dates = Regex::new(r"[-—–]").expect("Can't create split time regex").split(text.as_str()).collect::<Vec<&str>>();
         println!("{:?}", dates);
         let start_date_text = dates.first().expect("Cannot get start date string").to_owned();
-        let end_date_text = dates.get(1).expect("Cannot get end date string").to_owned();
+
         let start = get_date(start_date_text).map(|x| {
             NaiveDateTime::parse_from_str(x.as_str(), "%Y/%m/%d %H:%M").expect("Date").timestamp()
         });
-        let end = get_date(end_date_text).map(|x| {
-            NaiveDateTime::parse_from_str(x.as_str(), "%Y/%m/%d %H:%M").expect("Date").timestamp()
-        });
+
+        let mut end = None;
+        if dates.len() == 2 {
+            let end_date_text = dates.get(1).expect("Cannot get end date string").to_owned();
+            end = get_date(end_date_text).map(|x| {
+                NaiveDateTime::parse_from_str(x.as_str(), "%Y/%m/%d %H:%M").expect("Date").timestamp()
+            });
+        }
 
         EventTime {start, end}
     }).expect("No time found")
