@@ -18,8 +18,13 @@ use crate::metrics::core::{AllRegistries, create_registries, Empty, setup_server
 use crate::mongo::core::get_all_status_messages;
 
 fn update_daily(ctx: Context, all_registries: Arc<AllRegistries>) {
+    let default_panic = std::panic::take_hook();
     tokio::task::spawn(async move {
-        let mut interval = tokio::time::interval(Duration::from_secs(60*60));
+        std::panic::set_hook(Box::new(move |info| {
+            default_panic(info);
+            std::process::exit(1);
+        }));
+        let mut interval = tokio::time::interval(Duration::from_secs(60 * 60));
         loop {
             get_total_guilds_count(&ctx, &all_registries).await;
             let status_messages = get_all_status_messages().await;
@@ -29,10 +34,10 @@ fn update_daily(ctx: Context, all_registries: Arc<AllRegistries>) {
                 let ctx = ctx.clone();
                 let embeds = embeds.clone();
                 tokio::spawn(async move {
-                    if sm.channel_id == 0 {return}
+                    if sm.channel_id == 0 { return }
                     let msg = ChannelId::from(sm.channel_id as u64).message(ctx.clone().http, sm.message_id as u64).await;
                     match msg {
-                        Ok (mut m) => {
+                        Ok(mut m) => {
                             match m.edit(&ctx.http, |f| {
                                 f.set_embeds(embeds)
                             }).await {
@@ -40,7 +45,7 @@ fn update_daily(ctx: Context, all_registries: Arc<AllRegistries>) {
                                 Err(e) => println!("Error while editing message {}", e)
                             }
                         },
-                        Err(_) => {println!("Cannot update guild : {}", sm.channel_id);}
+                        Err(_) => { println!("Cannot update guild : {}", sm.channel_id); }
                     }
                 });
             }
