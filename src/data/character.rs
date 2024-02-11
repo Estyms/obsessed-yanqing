@@ -291,7 +291,7 @@ pub struct Trace {
     pub desc: String,
     pub name: String,
     #[serde(rename = "sub_nodes")]
-    pub sub_nodes: Vec<SubNode>,
+    pub sub_nodes: Option<Vec<SubNode>>,
 }
 
 #[derive(Default, Debug, Clone, PartialEq, Serialize, Deserialize)]
@@ -340,9 +340,12 @@ pub struct VoiceActors {
 #[derive(Default, Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct Ratings {
-    pub solo: String,
-    pub blast: String,
-    pub aoe: String,
+    pub moc: String,
+    #[serde(rename = "moc_special")]
+    pub moc_special: String,
+    pub pure: String,
+    #[serde(rename = "pure_special")]
+    pub pure_special: String
 }
 #[derive(Default, Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
