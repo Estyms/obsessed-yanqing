@@ -220,15 +220,17 @@ fn get_event_type(event: Node, description: &Option<(String, String)>) -> EventT
 }
 
 fn get_banner_data(event: Node) -> Option<BannerData> {
-    let five_stars = event.find(Class("rarity-5").descendant(Name("picture")).descendant(Name("img"))).next().map(|x| x.attr("alt").expect("No alt on five star image").to_string());
-    let four_stars = event.find(Class("rarity-4")).take(3).map(|four_stars_node| {
-        four_stars_node.find(Name("picture").descendant(Name("img"))).next().map(|x| x.attr("alt").expect("No alt on four star image").to_string()).expect("Cannot get four stars names")
+    let five_stars = event.find(Class("rarity-5").and(Class("avatar").or(Class("hsr-set-image"))).descendant(Name("picture").descendant(Name("img")))).next().map(|x|{
+        x.attr("alt").expect("Cannot get five star")
+    }).or(None);
+    let four_stars = event.find(Class("rarity-4").and(Class("avatar").or(Class("hsr-set-image")))).take(3).map(|four_stars_node| {
+        four_stars_node.find(Name("picture").descendant(Name("img"))).next().map(|x| x.attr("alt").expect("Cannot get four stars").to_string()).expect("")
     }).collect::<Vec<String>>();
 
     match five_stars {
         None => None,
         Some(x) => match four_stars.len() {
-            3 => Some(BannerData { five_stars: x, four_stars }),
+            3 => Some(BannerData { five_stars: x.to_string(), four_stars }),
             _ => None
         }
     }
