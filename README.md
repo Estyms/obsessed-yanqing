@@ -31,7 +31,7 @@ If a character has multiple builds/gears, you need to click on th gear button ag
 
 ## Setup
 
-If you want to setup this bot by yourself, a docker image is available on [my docker registry](https://registry.evannregnault.dev/#!/taglist/obsessed-yanqing).
+If you want to setup this bot by yourself, a docker image is available on [my docker registry](https://registry.regnault.dev/#!/taglist/obsessed-yanqing).
 
 You'll also need a mongoDB server alongside it.
 
