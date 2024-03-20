@@ -12,7 +12,7 @@ use serenity::client::Context;
 use serenity::http::GuildPagination;
 use serenity::model::id::ChannelId;
 use serenity::model::prelude::Activity;
-use crate::commands::events::create_event_embeds;
+use crate::commands::events::{create_event_embeds, get_files_from_embeds};
 use crate::data::{Data};
 use crate::metrics::core::{AllRegistries, create_registries, Empty, setup_server};
 use crate::mongo::core::get_all_status_messages;
@@ -28,18 +28,24 @@ fn update_daily(ctx: Context, all_registries: Arc<AllRegistries>) {
         loop {
             get_total_guilds_count(&ctx, &all_registries).await;
             let status_messages = get_all_status_messages().await;
+
             let embeds = create_event_embeds().await;
+            let files = get_files_from_embeds(&embeds);
+
 
             for sm in status_messages {
                 let ctx = ctx.clone();
                 let embeds = embeds.clone();
+                let files = files.clone();
                 tokio::spawn(async move {
                     if sm.channel_id == 0 { return }
                     let msg = ChannelId::from(sm.channel_id as u64).message(ctx.clone().http, sm.message_id as u64).await;
                     match msg {
                         Ok(mut m) => {
+                            let to_delete = m.attachments.clone();
                             match m.edit(&ctx.http, |f| {
-                                f.set_embeds(embeds)
+                                let f = to_delete.iter().fold(f, |f, a| f.remove_existing_attachment(a.id));
+                                files.iter().fold(f, |f, a| f.attachment(a.as_str())).set_embeds(embeds)
                             }).await {
                                 Ok(..) => {},
                                 Err(e) => println!("Error while editing message {}", e)

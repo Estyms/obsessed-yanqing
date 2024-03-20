@@ -6,7 +6,7 @@ use chrono::{NaiveDateTime};
 use regex::{Regex};
 use select::document::Document;
 use select::node::Node;
-use select::predicate::{Class, Name, Predicate};
+use select::predicate::{Attr, Class, Name, Not, Predicate};
 use serenity::builder::CreateEmbed;
 use serenity::http::CacheHttp;
 use serenity::model::channel::Channel;
@@ -14,13 +14,14 @@ use serenity::model::id::{ChannelId, MessageId};
 use serenity::utils::{Color, Colour};
 use crate::data::{Context, Error};
 use crate::mongo::core::{add_discord_status_message, get_discord_status_message, StatusMessage};
+use crate::utils;
 
 
 pub async fn get_main_prydwen() -> String {
     reqwest::get("https://www.prydwen.gg/star-rail/").await.expect("Cannot get Prydwen").text().await.expect("Cannot get data")
 }
 
-#[derive(Clone)]
+#[derive(Clone, Debug)]
 enum EventType {
     CharacterBanner,
     ConeBanner,
@@ -28,27 +29,33 @@ enum EventType {
     Other,
 }
 
-#[derive(Clone)]
+#[derive(Clone, Debug)]
 struct BannerData {
     five_stars: String,
     four_stars: Vec<String>
 }
 
-#[derive(Clone)]
+#[derive(Clone, Debug)]
 struct EventTime {
     start: Option<i64>,
     end: Option<i64>
 }
 
-#[derive(Clone)]
+#[derive(Clone, Debug)]
 struct Event {
     name: String,
     description: Option<(String, String)>,
     time: EventTime,
-    image: Option<String>,
+    image: Option<ImageType>,
     banner_data: Option<BannerData>,
     color: Option<Color>,
     event_type: EventType
+}
+
+#[derive(Clone, Debug)]
+enum ImageType {
+    Url(String),
+    LocalPath(String)
 }
 
 struct Code {
@@ -133,7 +140,6 @@ fn get_time(event: Node) -> EventTime {
     event.find(Class("duration")).next().map(|x| {
         let text = x.text();
         let dates = Regex::new(r"[-—–]").expect("Can't create split time regex").split(text.as_str()).collect::<Vec<&str>>();
-        println!("{:?}", dates);
         let start_date_text = dates.first().expect("Cannot get start date string").to_owned();
 
         let start = get_date(start_date_text).map(|x| {
@@ -189,15 +195,28 @@ fn get_description(event: Node) -> Option<(String, String)> {
     description
 }
 
-fn get_image_color(doc: &str, attributes: &mut Split<char>) -> (Option<String>, Option<Colour>) {
+fn get_image_color(doc: &str, attributes: &mut Split<char>) -> (Option<ImageType>, Option<Colour>) {
     let id = attributes.find(|p| !p.to_owned().eq("accordion-item")).expect("Error while getting other id");
-    let image_regex = Regex::new(r".accordion-item\.idofevent button\{background-color:#([0-9a-f]{6});background-image:url\((/static/.*?\.jpg)\)}".replace("idofevent", id).as_str()).expect("Cannot created REGEX");
+    let image_regex = Regex::new(r".accordion-item\.idofevent button\{background-color:#([0-9a-f]{6});background-image:url\((/static/.*?\.(jpg|webp)|data:image/webp;base64,[A-Za-z0-9+/]*[=]*)\)}".replace("idofevent", id).as_str()).expect("Cannot created REGEX");
     let captures = image_regex.captures(doc).expect("Cannot scan document");
     let color = captures.get(1).map(|c| {
         let num = i32::from_str_radix(c.as_str(), 16).expect("Cannot convert color to int");
         Color::from_rgb(((num >> 16) & 0xff) as u8, ((num >> 8) & 0xff) as u8, (num & 0xff) as u8)
     });
-    let image = captures.get(2).map(|x| format!("https://www.prydwen.gg{}", x.as_str()));
+
+    let image = match captures.get(2) {
+        Some(x) if x.as_str().starts_with("/static") => {
+            Some(ImageType::Url(format!("https://www.prydwen.gg{}", x.as_str())))
+        },
+        Some(x) => {
+            let b64 = x.as_str();
+            Some(ImageType::LocalPath(utils::image_saver::write_image_from_b64(id.into(), b64.into())))
+        },
+        None => {
+            None
+        }
+    };
+
     (image, color)
 }
 
@@ -220,11 +239,11 @@ fn get_event_type(event: Node, description: &Option<(String, String)>) -> EventT
 }
 
 fn get_banner_data(event: Node) -> Option<BannerData> {
-    let five_stars = event.find(Class("rarity-5").and(Class("avatar").or(Class("hsr-set-image"))).descendant(Name("picture").descendant(Name("img")))).next().map(|x|{
+    let five_stars = event.find(Class("rarity-5").and(Class("avatar").or(Class("hsr-set-image"))).descendant(Name("img").and(Not(Attr("role", "presentation"))))).next().map(|x|{
         x.attr("alt").expect("Cannot get five star")
     }).or(None);
     let four_stars = event.find(Class("rarity-4").and(Class("avatar").or(Class("hsr-set-image")))).take(3).map(|four_stars_node| {
-        four_stars_node.find(Name("picture").descendant(Name("img"))).next().map(|x| x.attr("alt").expect("Cannot get four stars").to_string()).expect("")
+        four_stars_node.find(Name("img").and(Not(Attr("role", "presentation")))).next().map(|x| x.attr("alt").expect("Cannot get four stars").to_string()).expect("No four stars")
     }).collect::<Vec<String>>();
 
     match five_stars {
@@ -247,7 +266,10 @@ fn create_current_events_embeds(doc : &str) -> Vec<CreateEmbed> {
             .title(event.name);
 
         if let Some(image) = event.image {
-            embed = embed.image(image);
+            match image {
+                ImageType::Url(x) => {embed = embed.image(x)}
+                ImageType::LocalPath(x) => {embed = embed.attachment(x)}
+            }
         }
 
         if let Some(color) = event.color {
@@ -380,10 +402,13 @@ pub async fn create_event_message(
     }
 
     let embeds = create_event_embeds().await;
+    let files = get_files_from_embeds(&embeds);
 
-    let msg = channel.id().send_message(ctx, |f| {
+    let msg = channel.id()
+        .send_files(ctx, files.iter().map(|x| x.as_str()).collect::<Vec<&str>>(), |f| {
         f.add_embeds(embeds)
-    }).await.unwrap();
+        }
+     ).await.unwrap();
 
     let sm = StatusMessage {
         message_id: *msg.id.as_u64() as i64,
@@ -400,7 +425,23 @@ pub async fn create_event_message(
             e.title("Success !")
                 .description(format!("The event message has been created in #{}", channel_name))
         }).ephemeral(true)
-    }).await.expect("TODO: panic message");
+    }).await.unwrap();
 
     Ok(())
+}
+
+pub fn get_files_from_embeds(embeds: &Vec<CreateEmbed>) -> Vec<String> {
+    embeds.clone().into_iter().map(|e| {
+        if let Some(x) = e.clone().0.get("image") {
+            let name = x.as_object().unwrap().get("url").unwrap().to_string();
+            let name = name.replace("\"", "");
+            if name.starts_with("a") {
+                Some(name.replace("attachment://", "./images/"))
+            } else {
+                None
+            }
+        } else {
+            None
+        }
+    }).filter(|x| x.is_some()).map(|x| x.unwrap()).collect::<Vec<String>>()
 }

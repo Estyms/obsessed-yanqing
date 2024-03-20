@@ -1,6 +1,6 @@
 [package]
 name = "obsessed-yanqing"
-version = "1.4.7"
+version = "1.5.0"
 edition = "2021"
 authors = ["Evann Regnault"]
 license = "MIT"
@@ -22,3 +22,4 @@ mongodb = "2.6.0"
 chrono = "0.4.26"
 prometheus-client = "0.21.2"
 rocket = "0.5.0-rc.3"
+image-base64 = "0.1.0"
