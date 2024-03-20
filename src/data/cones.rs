@@ -31,7 +31,6 @@ pub struct Cone {
     pub release_date: String,
     pub path: String,
     pub stats: Stats,
-    pub character_builder_cone_info: CharacterBuilderConeInfo,
     pub skill_name: String,
     pub skill_description: SkillDescription,
 }
