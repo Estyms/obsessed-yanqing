@@ -15,7 +15,7 @@ choice.</br>This message will contain:
  - The currently known redeemable codes
 
 > In order to update this message every hour, three information are stored in a database : Guild id, Channel id, Message id.
-> 
+>  
 > ❗ Those are the only sensibles information stored by the bot !
 
 
