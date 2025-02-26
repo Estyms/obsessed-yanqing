@@ -11,7 +11,7 @@ The command `/create_event_message <channel>` creates, as its name indicate, an 
 choice.</br>This message will contain:
  - All the currently running banners
  - The currently going events
- - The upcoming banners and events 
+ - The upcoming banners and events
  - The currently known redeemable codes
 
 > In order to update this message every hour, three information are stored in a database : Guild id, Channel id, Message id.
